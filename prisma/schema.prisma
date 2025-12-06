@@ -1,0 +1,88 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["rhel-openssl-1.0.x", "debian-openssl-1.1.x", "linux-musl", "windows", "rhel-openssl-3.0.x", "native"]
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// In schema.prisma
+
+model User {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  email          String   @unique
+  name           String?
+  avatarUrl      String?
+  hashedPassword String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  //Relations
+  oauthAccounts  OauthAccount[]
+  
+  // --- แก้ไข/เพิ่ม 3 บรรทัดนี้ ---
+  boardIds       String[] @db.ObjectId
+  boards         Board[]  @relation("BoardMembers", fields: [boardIds], references: [id])
+}
+
+
+// OauthAccount model remains the same
+model OauthAccount {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  providerId     String
+  providerUserId String
+  userId         String   @db.ObjectId
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([providerId, providerUserId])
+}
+// In schema.prisma
+
+model Board {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberIds String[] @db.ObjectId
+  members   User[]   @relation("BoardMembers", fields: [memberIds], references: [id])
+  
+  // --- เพิ่มตรงนี้ ---
+  // Board หนึ่งอันมีได้หลาย Column
+  columns   Column[]
+}
+
+model Column {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  order     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  boardId   String   @db.ObjectId
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  
+  // --- เพิ่มตรงนี้ ---
+  // Column หนึ่งอันมีได้หลาย Task
+  tasks     Task[]
+}
+
+// --- เพิ่ม Model ใหม่นี้เข้าไปต่อท้ายไฟล์ ---
+model Task {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  order       Float    // สำหรับเรียงลำดับ Task ภายใน Column
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  //Relations
+  columnId    String   @db.ObjectId
+  column      Column   @relation(fields: [columnId], references: [id], onDelete: Cascade)
+}
